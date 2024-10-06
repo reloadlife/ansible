@@ -1,0 +1,75 @@
+---
+- name: Set up UDP2RAW ICMP Tunnel over 4to6
+  hosts: all
+  become: yes
+  vars:
+    server1_ipv4: "1.1.1.1"
+    server2_ipv4: "2.2.2.2"
+    server1_ipv6: "2001:db8::1"  # Replace with actual IPv6 addresses
+    server2_ipv6: "2001:db8::2"
+    wireguard_port: "51820"
+    udp2raw_password: "your_secure_password"
+    udp2raw_mode: "icmp"
+
+  tasks:
+    - name: Install required packages
+      apt:
+        name:
+          - iproute2
+          - udp2raw-tunnel
+          - wireguard
+        state: present
+      when: ansible_os_family == "Debian"
+
+    - name: Set up 4to6 tunnel on Server 1
+      command: "ip tunnel add tun46 mode sit remote {{ server2_ipv4 }} local {{ server1_ipv4 }} ttl 255"
+      when: inventory_hostname == server1_ipv4
+
+    - name: Set up 4to6 tunnel on Server 2
+      command: "ip tunnel add tun46 mode sit remote {{ server1_ipv4 }} local {{ server2_ipv4 }} ttl 255"
+      when: inventory_hostname == server2_ipv4
+
+    - name: Bring up 4to6 tunnel interface
+      command: "ip link set tun46 up"
+
+    - name: Assign IPv6 address to tunnel interface on Server 1
+      command: "ip addr add {{ server1_ipv6 }}/64 dev tun46"
+      when: inventory_hostname == server1_ipv4
+
+    - name: Assign IPv6 address to tunnel interface on Server 2
+      command: "ip addr add {{ server2_ipv6 }}/64 dev tun46"
+      when: inventory_hostname == server2_ipv4
+
+    - name: Start UDP2RAW ICMP tunnel on Server 1
+      command: >
+        udp2raw --raw-mode {{ udp2raw_mode }} --cipher-mode aes128cbc --auth-mode md5 
+        --raw-dest {{ server2_ipv6 }} --raw-port {{ wireguard_port }} 
+        -l 0.0.0.0:{{ wireguard_port }} -r {{ server2_ipv6 }}:{{ wireguard_port }} 
+        -k "{{ udp2raw_password }}" --force-cookie
+      async: 45
+      poll: 0
+      when: inventory_hostname == server1_ipv4
+
+    - name: Start UDP2RAW ICMP tunnel on Server 2
+      command: >
+        udp2raw --raw-mode {{ udp2raw_mode }} --cipher-mode aes128cbc --auth-mode md5 
+        --raw-dest {{ server1_ipv6 }} --raw-port {{ wireguard_port }} 
+        -l 0.0.0.0:{{ wireguard_port }} -r {{ server1_ipv6 }}:{{ wireguard_port }} 
+        -k "{{ udp2raw_password }}" --force-cookie
+      async: 45
+      poll: 0
+      when: inventory_hostname == server2_ipv4
+
+    - name: Ensure WireGuard is running
+      systemd:
+        name: wg-quick@wg0
+        state: started
+        enabled: yes
+
+    - name: Add route for WireGuard traffic through UDP2RAW tunnel on Server 1
+      command: "ip route add {{ server2_ipv6 }} dev tun46"
+      when: inventory_hostname == server1_ipv4
+
+    - name: Add route for WireGuard traffic through UDP2RAW tunnel on Server 2
+      command: "ip route add {{ server1_ipv6 }} dev tun46"
+      when: inventory_hostname == server2_ipv4

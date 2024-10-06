@@ -13,6 +13,7 @@ This repository contains Ansible playbooks and scripts for automating various sy
     - [docker.yml](#dockeryml)
     - [wg\_dashboard.yml](#wg_dashboardyml)
     - [wg\_dashboard\_with\_wg.yml](#wg_dashboard_with_wgyml)
+    - [udp2raw\_tunnel.yml](#udp2raw_tunnelyml)
   - [Usage](#usage)
     - [Setting Up Inventory](#setting-up-inventory)
     - [Running Playbooks](#running-playbooks)
@@ -47,69 +48,66 @@ Here's a list of available playbooks and their purposes:
 - **Purpose**: Installs and configures WireGuard VPN
 - **Supported OS**: Ubuntu, Debian, CentOS, RHEL, Fedora
 - **Usage**: `ansible-playbook wg.yml`
-- **one liner**:
-
-```bash
-- ansible-playbook -b https://raw.githubusercontent.com/reloadlife/ansible/main/wg.yml
-```
+- **One-liner**:
+  ```bash
+  ansible-playbook -b https://raw.githubusercontent.com/reloadlife/ansible/main/wg.yml
+  ```
 
 ### docker.yml
 
 - **Purpose**: Installs Docker and sets up basic configurations
 - **Supported OS**: Ubuntu, Debian, CentOS, RHEL, Fedora, macOS
 - **Usage**: `ansible-playbook docker.yml`
-- **one liner**:
-
-```bash
-- ansible-playbook  -b https://raw.githubusercontent.com/reloadlife/ansible/main/docker.yml
-```
+- **One-liner**:
+  ```bash
+  ansible-playbook -b https://raw.githubusercontent.com/reloadlife/ansible/main/docker.yml
+  ```
 
 ### wg_dashboard.yml
 
-- **REQUIREMENT**: you have to put https://raw.githubusercontent.com/reloadlife/ansible/main/wg-dashboard.ini.j2 in your anisble templates
-
-```bash
-curl https://raw.githubusercontent.com/reloadlife/ansible/main/wg-dashboard.ini.j2 -o ~/.ansible/templates/wg-dashboard.ini.j2
-```
-
-- **Purpose**: Installs [wireguard dashboard](https://github.com/donaldzou/WGDashboard)
+- **REQUIREMENT**: Download the template file:
+  ```bash
+  curl https://raw.githubusercontent.com/reloadlife/ansible/main/wg-dashboard.ini.j2 -o ~/.ansible/templates/wg-dashboard.ini.j2
+  ```
+- **Purpose**: Installs [WireGuard Dashboard](https://github.com/donaldzou/WGDashboard)
 - **Supported OS**: Ubuntu, Debian, CentOS, RHEL, Fedora, macOS
 - **Usage**: `ansible-playbook wg_dashboard.yml`
-- **one liner**:
-
-```bash
-- ansible-playbook -b https://raw.githubusercontent.com/reloadlife/ansible/main/wg_dashboard.yml
-```
+- **One-liner**:
+  ```bash
+  ansible-playbook -b https://raw.githubusercontent.com/reloadlife/ansible/main/wg_dashboard.yml
+  ```
 
 ### wg_dashboard_with_wg.yml
 
-- **REQUIREMENT**: you have to put https://raw.githubusercontent.com/reloadlife/ansible/main/wg-dashboard.ini.j2 in your anisble templates
-
-```bash
-curl https://raw.githubusercontent.com/reloadlife/ansible/main/wg-dashboard.ini.j2 -o ~/.ansible/templates/wg-dashboard.ini.j2
-```
-
-- **Purpose**: Installs [wireguard dashboard](https://github.com/donaldzou/WGDashboard) bundeled with wireguard
+- **REQUIREMENT**: Download the template file:
+  ```bash
+  curl https://raw.githubusercontent.com/reloadlife/ansible/main/wg-dashboard.ini.j2 -o ~/.ansible/templates/wg-dashboard.ini.j2
+  ```
+- **Purpose**: Installs [WireGuard Dashboard](https://github.com/donaldzou/WGDashboard) bundled with WireGuard
 - **Supported OS**: Ubuntu, Debian, CentOS, RHEL, Fedora, macOS
 - **Usage**: `ansible-playbook wg_dashboard_with_wg.yml`
-- **one liner**:
+- **One-liner**:
+  ```bash
+  ansible-playbook -b https://raw.githubusercontent.com/reloadlife/ansible/main/wg_dashboard_with_wg.yml
+  ```
+- **Example with custom port**:
+  ```bash
+  ansible-playbook -b -e "{'dashboard_port':9090}" https://raw.githubusercontent.com/reloadlife/ansible/main/wg_dashboard_with_wg.yml
+  ```
 
-```bash
-- ansible-playbook -b https://raw.githubusercontent.com/reloadlife/ansible/main/wg_dashboard_with_wg.yml
-```
+### udp2raw_tunnel.yml
 
-- **EXAMPLE:**
-```bash
-#this will change the dashboard port to 9090
-ansible-playbook -b -e "{'dashboard_port':9090}" https://raw.githubusercontent.com/reloadlife/ansible/main/wg_dashboard_with_wg.yml
-```
-
-
-<!-- Template for adding new playbooks:
-### playbook_name.yml
-- **Purpose**: Brief description of what the playbook does
-- **Supported OS**: List of supported operating systems
-- **Usage**: `ansible-playbook -i inventory.ini playbook_name.yml` -->
+- **Purpose**: Sets up a UDP2RAW ICMP tunnel over a 4to6 tunnel between two servers
+- **Supported OS**: Ubuntu, Debian (may work on other Linux distributions with minimal modifications)
+- **Usage**: `ansible-playbook udp2raw_tunnel.yml`
+- **One-liner**:
+  ```bash
+  ansible-playbook -i inventory.ini udp2raw_tunnel.yml
+  ```
+- **Example with custom IPs**:
+  ```bash
+  ansible-playbook -i inventory.ini udp2raw_tunnel.yml -e "server1_ipv4=3.3.3.3 server2_ipv4=4.4.4.4"
+  ```
 
 ## Usage
 
@@ -117,13 +115,12 @@ ansible-playbook -b -e "{'dashboard_port':9090}" https://raw.githubusercontent.c
 
 1. Create an inventory file named `inventory.ini` in the project root.
 2. Add your target hosts:
-3. if you're only managing your local machine, ignore this part
-
-```ini
-[servers]
-server1 ansible_host=192.168.1.10
-server2 ansible_host=192.168.1.11
-```
+   ```ini
+   [servers]
+   server1 ansible_host=192.168.1.10
+   server2 ansible_host=192.168.1.11
+   ```
+3. If you're only managing your local machine, you can skip this step.
 
 ### Running Playbooks
 
@@ -149,6 +146,9 @@ ansible-playbook -i "localhost," -c local -b https://raw.githubusercontent.com/r
 
 # Install Docker
 ansible-playbook -i "localhost," -c local -b https://raw.githubusercontent.com/reloadlife/ansible/main/docker.yml
+
+# Set up UDP2RAW tunnel
+ansible-playbook -i inventory.ini https://raw.githubusercontent.com/reloadlife/ansible/main/udp2raw_tunnel.yml
 ```
 
 ## Contributing
