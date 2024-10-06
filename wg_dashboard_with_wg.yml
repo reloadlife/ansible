@@ -1,0 +1,193 @@
+---
+- name: Install WireGuard and WGDashboard
+  hosts: all
+  become: yes
+  vars:
+    wgdashboard_repo: "https://github.com/donaldzou/WGDashboard.git"
+    wgdashboard_branch: "main"
+    wgdashboard_dir: "/opt/wgdashboard"
+    wg_conf_path: "/etc/wireguard"
+    dashboard_username: "admin"
+    dashboard_password: "admin"  # Will be hashed in the config file
+    dashboard_ip: "0.0.0.0"
+    dashboard_port: 10086
+    dashboard_auth_required: true
+    dashboard_refresh_interval: 60000
+    dashboard_sort: "status"
+    dashboard_theme: "dark"
+    dashboard_api_key: false
+    dashboard_language: "en"
+    peer_global_dns: "1.1.1.1"
+    peer_endpoint_allowed_ip: "0.0.0.0/0"
+    peer_mtu: 1420
+    peer_keep_alive: 21
+    remote_endpoint: "{{ ansible_default_ipv4.address }}:51820"
+
+
+  tasks:
+    - name: Gather facts about the system
+      setup:
+
+    # WireGuard Installation
+    - name: Install WireGuard on Ubuntu/Debian
+      apt:
+        name: 
+          - wireguard
+          - wireguard-tools
+        state: present
+        update_cache: yes
+      when: ansible_os_family == "Debian"
+
+    - name: Install WireGuard on CentOS/RHEL 8+
+      dnf:
+        name:
+          - kmod-wireguard
+          - wireguard-tools
+        state: present
+      when: 
+        - ansible_os_family == "RedHat"
+        - ansible_distribution_major_version | int >= 8
+
+    - name: Install EPEL repository on CentOS/RHEL 7
+      yum:
+        name: epel-release
+        state: present
+      when: 
+        - ansible_os_family == "RedHat"
+        - ansible_distribution_major_version == "7"
+
+    - name: Install WireGuard on CentOS/RHEL 7
+      yum:
+        name:
+          - kmod-wireguard
+          - wireguard-tools
+        state: present
+      when: 
+        - ansible_os_family == "RedHat"
+        - ansible_distribution_major_version == "7"
+
+    - name: Ensure WireGuard kernel module is loaded
+      community.general.modprobe:
+        name: wireguard
+        state: present
+      when: ansible_system == 'Linux'
+
+    # Common Dependencies
+    - name: Install common dependencies
+      package:
+        name:
+          - git
+          - net-tools
+        state: present
+
+    # Python 3.10+ Installation
+    - name: Install Python 3.10+ (Ubuntu 20.04)
+      block:
+        - name: Add deadsnakes PPA
+          apt_repository:
+            repo: ppa:deadsnakes/ppa
+        - name: Install Python 3.10
+          apt:
+            name:
+              - python3.10
+              - python3.10-distutils
+            state: present
+      when: ansible_distribution == 'Ubuntu' and ansible_distribution_version == '20.04'
+
+    - name: Install Python 3.10+ (Debian 11)
+      block:
+        - name: Install build dependencies
+          apt:
+            name:
+              - build-essential
+              - zlib1g-dev
+              - libncurses5-dev
+              - libgdbm-dev
+              - libnss3-dev
+              - libssl-dev
+              - libreadline-dev
+              - libffi-dev
+              - libsqlite3-dev
+              - wget
+              - libbz2-dev
+            state: present
+        - name: Download and build Python 3.10
+          shell: |
+            wget https://www.python.org/ftp/python/3.10.0/Python-3.10.0.tgz
+            tar -xvf Python-3.10.0.tgz
+            cd Python-3.10.0
+            ./configure --enable-optimizations
+            make altinstall
+          args:
+            creates: /usr/local/bin/python3.10
+      when: ansible_distribution == 'Debian' and ansible_distribution_major_version == '11'
+
+    # WGDashboard Installation
+    - name: Clone WGDashboard repository
+      git:
+        repo: "{{ wgdashboard_repo }}"
+        version: "{{ wgdashboard_branch }}"
+        dest: "{{ wgdashboard_dir }}"
+
+    - name: Install WGDashboard
+      shell:
+        cmd: |
+          cd {{ wgdashboard_dir }}/src
+          chmod u+x wgd.sh
+          ./wgd.sh install
+        creates: "{{ wgdashboard_dir }}/src/venv"
+
+    - name: Set permissions for WireGuard configuration folder
+      file:
+        path: /etc/wireguard
+        mode: '0755'
+        recurse: yes
+
+    # WGDashboard Service Setup
+    - name: Copy and update WGDashboard service file
+      template:
+        src: "{{ wgdashboard_dir }}/src/wg-dashboard.service"
+        dest: /etc/systemd/system/wg-dashboard.service
+        mode: '0664'
+
+    - name: Update WGDashboard service file
+      replace:
+        path: /etc/systemd/system/wg-dashboard.service
+        regexp: '<absolute_path_of_wgdashboard_src>'
+        replace: "{{ wgdashboard_dir }}/src"
+
+    - name: Enable and start WGDashboard service
+      systemd:
+        name: wg-dashboard
+        enabled: yes
+        state: started
+        daemon_reload: yes
+
+    # Firewall Configuration
+    - name: Configure firewall (for RedHat family)
+      firewalld:
+        port: "{{ item }}"
+        permanent: yes
+        state: enabled
+      loop:
+        - 10086/tcp
+        - 51820/udp
+      when: ansible_os_family == "RedHat"
+
+    - name: Reload firewall (for RedHat family)
+      command: firewall-cmd --reload
+      when: ansible_os_family == "RedHat"
+
+    # IP Forwarding
+    - name: Enable IP forwarding
+      sysctl:
+        name: net.ipv4.ip_forward
+        value: '1'
+        sysctl_set: yes
+        state: present
+        reload: yes
+
+    # Installation Complete Message
+    - name: Display installation complete message
+      debug:
+        msg: "WireGuard and WGDashboard have been installed and started. Access WGDashboard at http://{{ ansible_default_ipv4.address }}:10086 with username 'admin' and password 'admin'."

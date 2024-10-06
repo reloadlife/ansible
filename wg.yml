@@ -6,6 +6,7 @@
     - name: Gather facts about the system
       setup:
 
+    # Ubuntu/Debian installation
     - name: Install WireGuard on Ubuntu/Debian
       apt:
         name: 
@@ -15,6 +16,7 @@
         update_cache: yes
       when: ansible_os_family == "Debian"
 
+    # CentOS/RHEL installation
     - name: Install WireGuard on CentOS/RHEL 8+
       dnf:
         name:
@@ -43,6 +45,18 @@
         - ansible_os_family == "RedHat"
         - ansible_distribution_major_version == "7"
 
+    # macOS installation
+    - name: Install Homebrew (macOS)
+      shell: /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+      when: ansible_os_family == "Darwin" and ansible_homebrew is not defined
+
+    - name: Install WireGuard using Homebrew (macOS)
+      homebrew_cask:
+        name: wireguard-tools
+        state: present
+      when: ansible_os_family == "Darwin"
+
+    # Nix installation
     - name: Check if Nix is installed
       command: which nix-env
       register: nix_check
@@ -53,11 +67,12 @@
       command: nix-env -iA nixpkgs.wireguard-tools
       when: nix_check.rc == 0
 
-    - name: Ensure WireGuard kernel module is loaded
+    # Common tasks for all systems
+    - name: Ensure WireGuard kernel module is loaded (Linux)
       community.general.modprobe:
         name: wireguard
         state: present
-      when: ansible_system == 'Linux'
+      when: ansible_system == "Linux"
 
     - name: Verify WireGuard installation
       command: which wg

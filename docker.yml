@@ -63,6 +63,17 @@
         state: present
       when: ansible_os_family == "RedHat"
 
+    # macOS installation
+    - name: Install Homebrew (macOS)
+      shell: /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+      when: ansible_os_family == "Darwin" and ansible_homebrew is not defined
+
+    - name: Install Docker using Homebrew (macOS)
+      homebrew_cask:
+        name: docker
+        state: present
+      when: ansible_os_family == "Darwin"
+
     # Nix installation
     - name: Check if Nix is installed
       command: which nix-env
@@ -75,11 +86,23 @@
       when: nix_check.rc == 0
 
     # Common tasks for all systems
-    - name: Start Docker service
+    - name: Start Docker service (Linux)
       systemd:
         name: docker
         state: started
         enabled: yes
+      when: ansible_system == "Linux"
+
+    - name: Start Docker Desktop (macOS)
+      command: open -a Docker
+      when: ansible_os_family == "Darwin"
+
+    - name: Wait for Docker to start (macOS)
+      wait_for:
+        path: /var/run/docker.sock
+        state: present
+        timeout: 60
+      when: ansible_os_family == "Darwin"
 
     - name: Verify Docker installation
       command: docker --version
@@ -90,12 +113,12 @@
       debug:
         msg: "Docker installed successfully. Version: {{ docker_check.stdout }}"
 
-    - name: Add user to docker group
+    - name: Add user to docker group (Linux)
       user:
         name: "{{ ansible_user }}"
         groups: docker
         append: yes
-      when: ansible_system == 'Linux'
+      when: ansible_system == "Linux"
 
     - name: Reset connection to apply group changes
       meta: reset_connection

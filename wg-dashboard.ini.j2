@@ -1,0 +1,21 @@
+[Account]
+username = {{ dashboard_username }}
+password = {{ dashboard_password | hash('sha256') }}
+
+[Server]
+wg_conf_path = {{ wg_conf_path }}
+app_ip = {{ dashboard_ip }}
+app_port = {{ dashboard_port }}
+auth_req = {{ dashboard_auth_required | lower }}
+dashboard_refresh_interval = {{ dashboard_refresh_interval }}
+dashboard_sort = {{ dashboard_sort }}
+dashboard_theme = {{ dashboard_theme }}
+dashboard_api_key = {{ dashboard_api_key | lower }}
+dashboard_language = {{ dashboard_language }}
+
+[Peers]
+peer_global_dns = {{ peer_global_dns }}
+peer_endpoint_allowed_ip = {{ peer_endpoint_allowed_ip }}
+peer_mtu = {{ peer_mtu }}
+peer_keep_alive = {{ peer_keep_alive }}
+remote_endpoint = {{ remote_endpoint }}
