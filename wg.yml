@@ -1,0 +1,76 @@
+---
+- name: Install WireGuard
+  hosts: all
+  become: yes
+  tasks:
+    - name: Gather facts about the system
+      setup:
+
+    - name: Install WireGuard on Ubuntu/Debian
+      apt:
+        name: 
+          - wireguard
+          - wireguard-tools
+        state: present
+        update_cache: yes
+      when: ansible_os_family == "Debian"
+
+    - name: Install WireGuard on CentOS/RHEL 8+
+      dnf:
+        name:
+          - kmod-wireguard
+          - wireguard-tools
+        state: present
+      when: 
+        - ansible_os_family == "RedHat"
+        - ansible_distribution_major_version | int >= 8
+
+    - name: Install EPEL repository on CentOS/RHEL 7
+      yum:
+        name: epel-release
+        state: present
+      when: 
+        - ansible_os_family == "RedHat"
+        - ansible_distribution_major_version == "7"
+
+    - name: Install WireGuard on CentOS/RHEL 7
+      yum:
+        name:
+          - kmod-wireguard
+          - wireguard-tools
+        state: present
+      when: 
+        - ansible_os_family == "RedHat"
+        - ansible_distribution_major_version == "7"
+
+    - name: Check if Nix is installed
+      command: which nix-env
+      register: nix_check
+      ignore_errors: yes
+      changed_when: false
+
+    - name: Install WireGuard using Nix
+      command: nix-env -iA nixpkgs.wireguard-tools
+      when: nix_check.rc == 0
+
+    - name: Ensure WireGuard kernel module is loaded
+      community.general.modprobe:
+        name: wireguard
+        state: present
+      when: ansible_system == 'Linux'
+
+    - name: Verify WireGuard installation
+      command: which wg
+      register: wg_check
+      ignore_errors: yes
+      changed_when: false
+
+    - name: Display WireGuard version
+      debug:
+        msg: "WireGuard installed successfully. Version: {{ lookup('pipe', 'wg --version') }}"
+      when: wg_check.rc == 0
+
+    - name: Fail if WireGuard is not installed
+      fail:
+        msg: "WireGuard installation failed."
+      when: wg_check.rc != 0
