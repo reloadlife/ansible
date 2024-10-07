@@ -14,6 +14,7 @@ This repository contains Ansible playbooks and scripts for automating various sy
     - [wg\_dashboard.yml](#wg_dashboardyml)
     - [wg\_dashboard\_with\_wg.yml](#wg_dashboard_with_wgyml)
     - [udp2raw\_tunnel.yml](#udp2raw_tunnelyml)
+    - [xray.yml](#xrayyml)
   - [Usage](#usage)
     - [Setting Up Inventory](#setting-up-inventory)
     - [Running Playbooks](#running-playbooks)
@@ -109,6 +110,23 @@ Here's a list of available playbooks and their purposes:
   ansible-playbook -i inventory.ini udp2raw_tunnel.yml -e "server1_ipv4=3.3.3.3 server2_ipv4=4.4.4.4"
   ```
 
+### xray.yml
+
+- **Purpose**: Installs Xray using Docker
+- **Supported OS**: Ubuntu, Debian (may work on other Linux distributions with minimal modifications)
+- **Usage**: `ansible-playbook xray.yml`
+- **One-liner**:
+  ```bash
+  ansible-playbook -b https://raw.githubusercontent.com/reloadlife/ansible/main/xray.yml
+  ```
+- **Requirements**: 
+  - Docker installation (the playbook will install Docker if not present)
+  - `xray_config.json.j2` template file in the `templates` directory
+- **Customization**: You can modify the following variables in the playbook:
+  - `xray_config_path`: Path to store Xray configuration (default: "/etc/xray")
+  - `xray_port`: Port on which Xray will listen (default: 10808)
+  - `xray_image`: Docker image for Xray (default: "teddysun/xray:latest")
+
 ## Usage
 
 ### Setting Up Inventory
@@ -149,6 +167,9 @@ ansible-playbook -i "localhost," -c local -b https://raw.githubusercontent.com/r
 
 # Set up UDP2RAW tunnel
 ansible-playbook -i inventory.ini https://raw.githubusercontent.com/reloadlife/ansible/main/udp2raw_tunnel.yml
+
+# Install Xray using Docker
+ansible-playbook -i "localhost," -c local -b https://raw.githubusercontent.com/reloadlife/ansible/main/install_xray_docker.yml
 ```
 
 ## Contributing

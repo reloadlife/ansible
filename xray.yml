@@ -1,0 +1,77 @@
+---
+- name: Install Xray using Docker
+  hosts: all
+  become: yes
+  vars:
+    xray_config_path: "/etc/xray"
+    xray_port: 10808
+    xray_image: "teddysun/xray:latest"
+
+  tasks:
+    - name: Install required system packages
+      apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - software-properties-common
+        state: present
+        update_cache: yes
+      when: ansible_os_family == "Debian"
+
+    - name: Add Docker GPG apt Key
+      apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+      when: ansible_os_family == "Debian"
+
+    - name: Add Docker Repository
+      apt_repository:
+        repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable
+        state: present
+      when: ansible_os_family == "Debian"
+
+    - name: Install Docker
+      apt:
+        name: docker-ce
+        state: present
+        update_cache: yes
+      when: ansible_os_family == "Debian"
+
+    - name: Ensure Docker service is running
+      systemd:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Create Xray configuration directory
+      file:
+        path: "{{ xray_config_path }}"
+        state: directory
+        mode: "0755"
+
+    - name: Create Xray configuration file
+      template:
+        src: xray_config.json.j2
+        dest: "{{ xray_config_path }}/config.json"
+        mode: "0644"
+
+    - name: Pull Xray Docker image
+      docker_image:
+        name: "{{ xray_image }}"
+        source: pull
+
+    - name: Run Xray container
+      docker_container:
+        name: xray
+        image: "{{ xray_image }}"
+        state: started
+        restart_policy: always
+        ports:
+          - "{{ xray_port }}:10808"
+        volumes:
+          - "{{ xray_config_path }}/config.json:/etc/xray/config.json"
+
+    - name: Display Xray installation complete message
+      debug:
+        msg: "Xray has been installed using Docker and is running on port {{ xray_port }}."
